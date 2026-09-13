@@ -47,8 +47,15 @@ class MBR:
         Checks if this MBR intersects with another MBR.
         Used heavily during branch-pruning in searches.
         """
-        return np.all(self.min_bounds <= other_mbr.max_bounds) and \
-               np.all(self.max_bounds >= other_mbr.min_bounds)
+        return bool(np.all(self.min_bounds <= other_mbr.max_bounds) and
+                    np.all(self.max_bounds >= other_mbr.min_bounds))
+
+    def contains_point(self, point):
+        """
+        Checks if a point lies within (or on the boundary of) this MBR.
+        Used to prune branches when searching for a specific entry to delete.
+        """
+        return bool(np.all(point >= self.min_bounds) and np.all(point <= self.max_bounds))
 
     def min_distance(self, point):
         """

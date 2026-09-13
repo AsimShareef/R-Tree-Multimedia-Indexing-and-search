@@ -94,6 +94,15 @@
             </div>
             
             <div id="errorBox" class="alert alert-danger mt-3 bg-transparent border-danger text-danger small" style="display: none;"></div>
+
+            <div id="recallBox" class="info-box mt-4" style="display: none; border-left-color: #43e97b; background: rgba(67, 233, 123, 0.1);">
+                <strong><i class="bi bi-check-circle"></i> Correctness Check</strong>
+                <div class="small mt-2 opacity-75">Both trees perform <em>exact</em> KNN, so recall@k against brute-force ground truth should sit at ~100%. A sustained drop would flag a pruning bug.</div>
+                <div class="d-flex justify-content-between mt-3">
+                    <div><span class="text-light opacity-50 small">KD-Tree avg recall</span><br><span id="kdRecallVal" class="fw-bold" style="color:#4facfe; font-size:1.3rem;">-</span></div>
+                    <div><span class="text-light opacity-50 small">R-Tree avg recall</span><br><span id="rtreeRecallVal" class="fw-bold" style="color:#43e97b; font-size:1.3rem;">-</span></div>
+                </div>
+            </div>
         </div>
         
         <div class="col-md-8 ps-md-4 mt-4 mt-md-0">
@@ -169,10 +178,21 @@
         }
     }
 
+    function renderRecall(data) {
+        const box = document.getElementById('recallBox');
+        if (!data.kdtree_recall || !data.rtree_recall) { box.style.display = 'none'; return; }
+
+        const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+        document.getElementById('kdRecallVal').textContent = (avg(data.kdtree_recall) * 100).toFixed(1) + '%';
+        document.getElementById('rtreeRecallVal').textContent = (avg(data.rtree_recall) * 100).toFixed(1) + '%';
+        box.style.display = 'block';
+    }
+
     function renderGraph(data, reqData) {
         const placeholder = document.getElementById('graphPlaceholder');
         placeholder.style.display = 'none';
-        
+        renderRecall(data);
+
         const layout = {
             title: { text: `Search Latency vs Dimensions (N=${reqData.n}, K=${reqData.k})`, font: { family: 'Outfit', size: 18, color: '#fff' } },
             xaxis: { title: 'Number of Dimensions (D)', gridcolor: 'rgba(255,255,255,0.1)', zeroline: false, tickfont: {color: '#aaa'}, titlefont: {color: '#ccc'} },

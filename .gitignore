@@ -11,6 +11,13 @@ data/raw_audio/*
 # Runtime temp files written by the Flask upload endpoint
 temp_*
 
+# Virtual environments
+.venv/
+venv/
+
+# Test artifacts
+.pytest_cache/
+
 # Editor/OS cruft
 .vscode/
 .idea/

@@ -79,6 +79,96 @@ class RTree:
                 
                 node_to_split = parent
 
+    def delete(self, point_id, point_vector):
+        """
+        Removes a point from the R-Tree, following Guttman's Delete algorithm:
+        FindLeaf -> remove entry -> CondenseTree (re-inserting orphaned entries
+        from any node that underflows below the minimum fill) -> shorten the
+        tree if the root is left with a single child.
+
+        :param point_id: id of the point to remove.
+        :param point_vector: the vector that was used at insert time (needed to
+            prune the search, since an R-Tree isn't keyed by id alone).
+        :return: True if the point was found and removed, False otherwise.
+        """
+        point_vector = np.array(point_vector, dtype=np.float32)
+
+        leaf = self._find_leaf(self.root, point_id, point_vector)
+        if leaf is None:
+            return False
+
+        leaf.remove_point(point_id)
+        self._condense_tree(leaf)
+
+        # If the root is an internal node with only one child, that child
+        # becomes the new root (keeps the tree from growing needlessly tall).
+        if not self.root.is_leaf() and len(self.root.children) == 1:
+            self.root = self.root.children[0]
+            self.root.parent = None
+        elif self.root.is_leaf():
+            self.root.update_mbr()
+
+        return True
+
+    def _find_leaf(self, node, point_id, point_vector):
+        """
+        Searches for the leaf holding point_id. Only descends into children
+        whose MBR could plausibly contain the point, but still backtracks:
+        overlapping MBRs mean more than one subtree can geometrically contain
+        the point even though it's only stored once.
+        """
+        if node.is_leaf():
+            for pid, _ in node.entries:
+                if pid == point_id:
+                    return node
+            return None
+
+        for child in node.children:
+            if child.mbr is not None and child.mbr.contains_point(point_vector):
+                found = self._find_leaf(child, point_id, point_vector)
+                if found is not None:
+                    return found
+        return None
+
+    def _condense_tree(self, leaf):
+        """
+        Walks from `leaf` up to the root. Any node that has fallen below the
+        minimum fill (M/2) is detached from its parent and all of its entries
+        are queued for re-insertion, rather than left underfull in place.
+        """
+        min_fill = max(1, self.capacity // 2)
+        orphans = []
+        node = leaf
+
+        while node is not self.root:
+            parent = node.parent
+            underflow = (
+                len(node.entries) < min_fill if node.is_leaf()
+                else len(node.children) < min_fill
+            )
+
+            if underflow:
+                parent.remove_child(node)
+                orphans.extend(self._collect_points(node))
+            else:
+                node.update_mbr()
+
+            parent.update_mbr()
+            node = parent
+
+        for point_id, point_vector in orphans:
+            self.insert(point_id, point_vector)
+
+    def _collect_points(self, node):
+        """Recursively flattens a (detached) subtree into its raw (id, vector) entries."""
+        if node.is_leaf():
+            return list(node.entries)
+
+        points = []
+        for child in node.children:
+            points.extend(self._collect_points(child))
+        return points
+
     def _choose_leaf(self, node, point_vector):
         """
         Traverses the tree from the root to find the best leaf for a new point.

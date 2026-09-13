@@ -50,6 +50,18 @@ class LeafNode(Node):
             # Expand the existing MBR to include the new point
             self.mbr = self.mbr.enlarge(point_vector)
 
+    def remove_point(self, point_id):
+        """
+        Removes the entry with the given point_id, if present.
+        Does not update the MBR; the caller should call update_mbr() afterwards.
+        :return: True if an entry was removed, False if point_id wasn't found here.
+        """
+        for i, (pid, _) in enumerate(self.entries):
+            if pid == point_id:
+                del self.entries[i]
+                return True
+        return False
+
     def update_mbr(self):
         """
         Recomputes the MBR from scratch based on all stored points.
@@ -93,6 +105,15 @@ class InternalNode(Node):
         elif child_node.mbr is not None:
             self.mbr = self.mbr.enlarge(child_node.mbr)
 
+    def remove_child(self, child_node):
+        """
+        Detaches a child node (used by deletion when a node underflows).
+        Does not update the MBR; the caller is expected to call update_mbr()
+        once all removals for this node are finished.
+        """
+        self.children.remove(child_node)
+        child_node.parent = None
+
     def update_mbr(self):
         """
         Recomputes the MBR from scratch based on all child MBRs.
@@ -100,13 +121,13 @@ class InternalNode(Node):
         if not self.children:
             self.mbr = None
             return
-        
+
         # Start with the MBR of the first child
         current_mbr = self.children[0].mbr
-        
+
         # Iteratively enlarge it with the remaining children
         for child in self.children[1:]:
             if child.mbr is not None:
                 current_mbr = current_mbr.enlarge(child.mbr)
-                
+
         self.mbr = current_mbr
