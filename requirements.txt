@@ -1,0 +1,9 @@
+numpy
+torch
+torchvision
+Pillow
+librosa
+scikit-learn
+Flask
+Flask-Cors
+plotly

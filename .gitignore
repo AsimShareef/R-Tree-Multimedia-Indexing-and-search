@@ -1,0 +1,17 @@
+# Byte-compiled / cache
+__pycache__/
+*.pyc
+
+# Datasets (large, not distributed via git — see README for how to populate)
+data/raw_images/*
+data/raw_audio/*
+!data/raw_images/.gitkeep
+!data/raw_audio/.gitkeep
+
+# Runtime temp files written by the Flask upload endpoint
+temp_*
+
+# Editor/OS cruft
+.vscode/
+.idea/
+.DS_Store

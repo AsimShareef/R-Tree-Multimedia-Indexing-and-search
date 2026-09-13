@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DBMS Benchmark Module | KD-Tree vs R-Tree</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        body { font-family: 'Outfit', sans-serif; color: #fff; margin: 0; min-height: 100vh; padding-top: 30px; padding-bottom: 30px; overflow-x: hidden;}
+        #particles-js { position: fixed; width: 100vw; height: 100vh; top: 0; left: 0; z-index: -1; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); }
+        
+        .container-custom { max-width: 1300px; margin: auto; position: relative; }
+        
+        .glass-panel { background: rgba(20, 25, 35, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); padding: 30px; }
+        
+        .header-title { color: #f6d365; font-weight: 700; text-shadow: 0 0 15px rgba(246, 211, 101, 0.4);}
+        
+        .form-label { font-weight: 600; color: #e0e0e0; font-size: 0.9rem;}
+        .form-control { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 10px; padding: 12px; font-weight: bold;}
+        .form-control:focus { background: rgba(0,0,0,0.5); color: white; border-color: #f6d365; box-shadow: 0 0 15px rgba(246, 211, 101, 0.3); }
+        
+        .btn-orange-glow { background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #000; border: none; padding: 14px; font-weight: 700; border-radius: 12px; transition: 0.3s; text-transform: uppercase;}
+        .btn-orange-glow:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(253, 160, 133, 0.4); color: #000;}
+        .btn-orange-glow:disabled { background: #555; color: #888; box-shadow: none; transform: none;}
+        
+        /* FIXED GRAPH CONTAINER */
+        .graph-wrapper { 
+            position: relative;
+            height: 550px; 
+            width: 100%;
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 16px; 
+            background: rgba(0,0,0,0.4); 
+            overflow: hidden; /* Prevents Plotly from spilling out of the rounded corners */
+        }
+        
+        #benchGraph {
+            width: 100%;
+            height: 100%;
+        }
+
+        .placeholder-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            text-align: center;
+            pointer-events: none; /* Let clicks pass through to the graph */
+        }
+        
+        .back-btn { color: #aaa; text-decoration: none; font-weight: 500; display: inline-block; transition: 0.2s;}
+        .back-btn:hover { color: #fff; }
+        
+        .info-box { background: rgba(246, 211, 101, 0.1); border-left: 4px solid #f6d365; padding: 15px; border-radius: 0 10px 10px 0; font-size: 0.9rem; color: #fdfdfd; margin-bottom: 25px;}
+    </style>
+</head>
+<body>
+<div id="particles-js"></div>
+
+<div class="container-custom">
+    <a href="/" class="back-btn mb-4"><i class="bi bi-arrow-left"></i> Back to DBMS Dashboard</a>
+    
+    <div class="row glass-panel">
+        <div class="col-md-4 pe-md-4 border-end" style="border-color: rgba(255,255,255,0.1) !important;">
+            <h2 class="header-title mb-3"><i class="bi bi-speedometer2"></i> DBMS Performance Benchmark</h2>
+            <p class="text-light opacity-75 small mb-4">Empirical evaluation of spatial indexing limitations.</p>
+            
+            <div class="info-box">
+                <strong><i class="bi bi-cpu"></i> Simulation Active:</strong> Dynamically instantiates R-Tree/KD-Tree boundaries in RAM, executes real queries, and clocks median latency to expose the dimensional threshold.
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-6">
+                    <label class="form-label">Database Size (N)</label>
+                    <input type="number" class="form-control" id="benchN" value="10000" step="1000">
+                </div>
+                <div class="col-6">
+                    <label class="form-label">Query Radius (K)</label>
+                    <input type="number" class="form-control" id="benchK" value="5" min="1">
+                </div>
+            </div>
+            
+            <button class="btn-orange-glow w-100" id="runBtn" onclick="runBenchmark()">
+                <i class="bi bi-play-fill"></i> Execute Sequence
+            </button>
+            
+            <div id="loadingStatus" class="mt-4 p-3 text-center" style="display: none; background: rgba(0,0,0,0.3); border-radius: 12px; border: 1px solid rgba(246, 211, 101, 0.2);">
+                <div class="spinner-border text-warning mb-2" role="status"></div>
+                <div class="small fw-bold text-warning letter-spacing-1">CALCULATING DISTANCES...</div>
+                <div class="small text-light opacity-50 mt-1" style="font-size: 0.75rem;">(Wait approx 10-25 seconds)</div>
+            </div>
+            
+            <div id="errorBox" class="alert alert-danger mt-3 bg-transparent border-danger text-danger small" style="display: none;"></div>
+        </div>
+        
+        <div class="col-md-8 ps-md-4 mt-4 mt-md-0">
+            <div class="graph-wrapper">
+                <div id="graphPlaceholder" class="placeholder-content text-light opacity-50">
+                    <i class="bi bi-bar-chart" style="font-size: 3rem;"></i>
+                    <p class="mt-2 fw-500">Awaiting Benchmark Data...</p>
+                </div>
+                <div id="benchGraph"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+<script>
+    particlesJS('particles-js', { "particles": { "number": { "value": 40 }, "color": { "value": "#f6d365" }, "shape": { "type": "circle" }, "opacity": { "value": 0.4 }, "size": { "value": 3 }, "line_linked": { "enable": true, "distance": 150, "color": "#f6d365", "opacity": 0.2, "width": 1 }, "move": { "enable": true, "speed": 1 } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "grab" } } }});
+
+    async function runBenchmark() {
+        const btn = document.getElementById('runBtn');
+        const loader = document.getElementById('loadingStatus');
+        const errorBox = document.getElementById('errorBox');
+        const placeholder = document.getElementById('graphPlaceholder');
+        
+        btn.disabled = true; 
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Running...';
+        loader.style.display = 'block'; 
+        errorBox.style.display = 'none';
+        
+        const reqData = { 
+            n: parseInt(document.getElementById('benchN').value), 
+            k: parseInt(document.getElementById('benchK').value) 
+        };
+        
+        try {
+            // 1. Tell the server to start the job
+            const response = await fetch('/api/benchmark/start', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify(reqData) 
+            });
+            
+            const initData = await response.json();
+            if (initData.error) throw new Error(initData.error);
+            
+            // 2. Start polling for the result using the Job ID
+            pollStatus(initData.job_id, reqData);
+
+        } catch (error) {
+            handleError(error.message);
+        }
+    }
+
+    async function pollStatus(jobId, reqData) {
+        try {
+            const response = await fetch(`/api/benchmark/status/${jobId}`);
+            const jobState = await response.json();
+
+            if (jobState.status === "Running") {
+                // If still running, wait 2 seconds and check again
+                setTimeout(() => pollStatus(jobId, reqData), 2000);
+            } 
+            else if (jobState.status === "Complete") {
+                // Computation is done! Render the graph.
+                renderGraph(jobState.data, reqData);
+                resetUI();
+            } 
+            else if (jobState.status === "Error") {
+                throw new Error(jobState.error);
+            }
+        } catch (error) {
+            handleError(error.message);
+        }
+    }
+
+    function renderGraph(data, reqData) {
+        const placeholder = document.getElementById('graphPlaceholder');
+        placeholder.style.display = 'none';
+        
+        const layout = {
+            title: { text: `Search Latency vs Dimensions (N=${reqData.n}, K=${reqData.k})`, font: { family: 'Outfit', size: 18, color: '#fff' } },
+            xaxis: { title: 'Number of Dimensions (D)', gridcolor: 'rgba(255,255,255,0.1)', zeroline: false, tickfont: {color: '#aaa'}, titlefont: {color: '#ccc'} },
+            yaxis: { title: 'Median Search Time (ms)', gridcolor: 'rgba(255,255,255,0.1)', zeroline: false, tickfont: {color: '#aaa'}, titlefont: {color: '#ccc'} },
+            paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+            legend: { orientation: "h", yanchor: "bottom", y: 1.02, xanchor: "right", x: 1, font: {color: '#fff'} },
+            margin: { l: 60, r: 20, t: 80, b: 50 },
+            autosize: true
+        };
+
+        const traces = [
+            { x: data.dims, y: data.linear, mode: 'lines+markers', name: 'Linear Scan', line: {color: '#fff', dash: 'dash', width: 2}, marker: {size: 6} },
+            { x: data.dims, y: data.kdtree, mode: 'lines+markers', name: 'KD-Tree', line: {color: '#4facfe', width: 3}, marker: {size: 8} },
+            { x: data.dims, y: data.rtree, mode: 'lines+markers', name: 'R-Tree', line: {color: '#43e97b', width: 3}, marker: {size: 8} }
+        ];
+        
+        Plotly.newPlot('benchGraph', traces, layout, {responsive: true});
+    }
+
+    function handleError(msg) {
+        const errorBox = document.getElementById('errorBox');
+        errorBox.innerHTML = `<i class="bi bi-exclamation-octagon"></i> ${msg}`; 
+        errorBox.style.display = 'block';
+        resetUI();
+    }
+
+    function resetUI() {
+        const btn = document.getElementById('runBtn');
+        const loader = document.getElementById('loadingStatus');
+        btn.disabled = false; 
+        btn.innerHTML = '<i class="bi bi-play-fill"></i> Execute Sequence'; 
+        loader.style.display = 'none';
+    }
+</script>
+</body>
+</html>
